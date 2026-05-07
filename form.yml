@@ -1,11 +1,6 @@
 ---
 cluster:
-  - "ascend"
-  - "pitzer"
-  - "kubernetes"
-  - "kubernetes-test"
-  - "kubernetes-dev"
-  - "cardinal"
+  - cbe
 form:
   - auto_accounts
   - mode
@@ -22,47 +17,12 @@ attributes:
     widget: 'select'
     options:
       - [
-          '4.1.5', '4.1.5',
+          '4.4.9-GCCcore-14.3.0', '4.4.9-GCCcore-14.3.0',
           data-option-for-cluster-kubernetes: false,
           data-option-for-cluster-kubernetes-test: false,
           data-option-for-cluster-kubernetes-dev: false,
         ]
-      - [
-          '3.1.18', '3.1.18',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
-      - [
-          '3.0.17', '3.0.17',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
-      - [
-          '2.3.2', '2.3.2',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
-      - [
-          '2.2.10', '2.2.10',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
-      - [
-          '1.2.21', '1.2.21',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
-      - [
-          '0.35.6', '0.35.6',
-          data-option-for-cluster-ascend: false,
-          data-option-for-cluster-cardinal: false,
-          data-option-for-cluster-pitzer: false,
-        ]
+
   mode:
     widget: "radio"
     value: "1"
@@ -94,16 +54,16 @@ attributes:
       means you have loaded the appropriate module in your own user defined kernel.
     options:
       - [ 'Load from custom kernel', 'none' ]
-      - [ 
+      - [
           "cuda/8.0.44",    "cuda/8.0.44",
           data-option-for-cluster-pitzer: false,
           data-option-for-cluster-kubernetes: false,
           data-option-for-cluster-kubernetes-test: false,
-          data-option-for-cluster-kubernetes-dev: false,  
+          data-option-for-cluster-kubernetes-dev: false,
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/8.0.61",    "cuda/8.0.61",
           data-option-for-cluster-pitzer: false,
           data-option-for-cluster-kubernetes: false,
@@ -112,27 +72,27 @@ attributes:
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/9.0.176",   "cuda/9.0.176",
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/9.1.85",    "cuda/9.1.85",
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/9.2.88",    "cuda/9.2.88",
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/10.0.130",  "cuda/10.0.130",
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
         ]
-      - [ 
+      - [
           "cuda/10.1.168",  "cuda/10.1.168",
           data-option-for-cluster-ascend: false,
           data-option-for-cluster-cardinal: false,
