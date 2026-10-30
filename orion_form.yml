@@ -1,0 +1,82 @@
+attributes:
+    auto_queues:
+        value: 'true'
+    cuda_version:
+        help: 'CUDA is Nvidia''s GPU-specific parallel computing framework. A GPU
+            node
+
+            is required to make use of this functionality.  **Load from custom kernel**
+
+            means you have loaded the appropriate module in your own user defined
+            kernel.
+
+            '
+        label: CUDA Version
+        options:
+        -   - Load from custom kernel
+            - none
+        widget: select
+    extra_jupyter_args: ''
+    gres:
+        help: Select GPU or other Slurm GRES resources
+        label: Resources
+        options:
+        -   - None
+            - none
+        required: true
+        widget: select
+    gres_count:
+        help: Count of GPU or other Slurm GRES resources
+        label: Resource count
+        min: 1
+        required: false
+        step: 1
+        value: 1
+        widget: number_field
+    jupyter_version:
+        cachable: true
+        help: Choose your Jupyter version
+        label: Jupyter version
+        options:
+        -   - Jupyter v4.4.9-GCCcore-14.3.0
+            - 4.4.9-GCCcore-14.3.0
+        required: true
+        widget: select
+    mode:
+        options:
+        -   - Jupyter Lab
+            - '1'
+        -   - Jupyter Notebook
+            - '0'
+        value: '1'
+        widget: radio
+    node:
+        help: Select a particular node or leave empty to let Slurm pick the next available
+        label: Node name
+        value: ''
+    num_cores:
+        label: Number of cores
+        value: 1
+    working_dir:
+        help: Select your project directory; defaults to $HOME
+        label: Root Directory
+        show_files: false
+        show_hidden: false
+        widget: path_selector
+cluster: cbe
+description: Request a Jupyter Notebook server
+form:
+- jupyter_version
+- mode
+- extra_jupyter_args
+- working_dir
+- auto_queues
+- bc_num_hours
+- num_cores
+- cuda_version
+- gres
+- gres_count
+- node
+submit: submit.yml.erb
+title: Jupyter Notebook
+
