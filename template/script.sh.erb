@@ -10,19 +10,28 @@ echo "TTT - $(date)"
 # Clean the environment
 module purge
 
-# Required modules
-<%- unless context.cuda_version.empty? || context.cuda_version == 'none' -%>
-module load <%= context.cuda_version %>
-<%- end -%>
-
 # Set working directory to notebook root directory
 cd "${NOTEBOOK_ROOT}"
 
 # Setup Jupyter environment
+#
+# JupyterLab modules on this software stack don't bundle the classic `notebook`
+# package, so `jupyter notebook` isn't available after loading them. Notebook
+# mode instead loads the corresponding JupyterNotebook module, which bundles
+# both `notebook` and a matching jupyterlab version.
+<%-
+  notebook_module_for = {
+    '4.4.9-GCCcore-14.3.0' => 'JupyterNotebook/7.4.7-GCCcore-14.3.0',
+  }
+-%>
+<% if context.mode == "1" -%>
 module load JupyterLab/<%= context.jupyter_version %>
+<% else -%>
+module load <%= notebook_module_for.fetch(context.jupyter_version) %>
+<% end -%>
 
 module list
-export JUPYTER_PATH="${PWD}/share/jupyter:${OSC_JUPYTER_PATH}"
+export JUPYTER_PATH="${PWD}/share/jupyter"
 
 echo "TTT - $(date)"
 
@@ -34,4 +43,4 @@ echo "TTT - $(date)"
 
 # Launch the Jupyter server
 set -x
-jupyter <%= context.mode == "1" ? 'lab' : 'notebook' %> --config="${CONFIG_FILE}"
+jupyter <%= context.mode == "1" ? 'lab' : 'notebook' %> --config="${CONFIG_FILE}" <%= context.extra_jupyter_args.to_s %>
