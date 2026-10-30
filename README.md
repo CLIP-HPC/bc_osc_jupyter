@@ -19,7 +19,8 @@ An [Open OnDemand](https://openondemand.org/) Batch Connect app that launches a 
 - Two node types, mapped directly to this cluster's Slurm partitions:
   - **CPU** (`c` partition) — 18 nodes, 96 cores, ~755 GB RAM each
   - **GPU** (`g` partition) — 8 nodes, 192 cores, ~1.5 TB RAM, 4x NVIDIA B200 each
-- GPU count selector (0-4 per node), requested via `gpus_per_node: nvidia_b200:N`
+- GPU resource selector on partition `g` (B200 MIG slice by default, or a full
+  B200), requested via `--gres=<resource>:<count>`
 - Root directory selector for the Jupyter session
 - Module-based software loading via Lmod (EESSI software stack)
 
@@ -46,16 +47,19 @@ and `g` partitions), not the OnDemand node itself:
 
 ### form.yml attributes
 
-| Attribute         | Widget          | Description                                              | Default   |
-|-------------------|-----------------|------------------------------------------------------------|-----------|
-| `cluster`         | (fixed)         | Target cluster                                              | `cbe`     |
-| `mode`            | radio           | Jupyter Lab (`1`) or Jupyter Notebook (`0`)                 | `1` (Lab) |
-| `working_dir`     | path_selector   | Root directory for the Jupyter session                      | `$HOME`   |
-| `bc_num_hours`    | number          | Maximum wall time (hours)                                   | `1`       |
-| `node_type`       | select          | `cpu` (`c` partition) or `gpu` (`g` partition)               | `cpu`     |
-| `gpus`            | number_field    | Number of NVIDIA B200 GPUs to request (0-4, `gpu` node type only) | `0`  |
-| `num_cores`       | number_field    | Number of CPU cores (1-96 on `cpu`, 1-192 on `gpu`)          | `1`       |
-| `jupyter_version` | select          | JupyterLab version to launch                                 | `4.4.9-GCCcore-14.3.0` |
+| Attribute            | Widget        | Description                                                        | Default   |
+|----------------------|---------------|--------------------------------------------------------------------|-----------|
+| `cluster`            | (fixed)       | Target cluster                                                     | `cbe`     |
+| `jupyter_version`    | select        | JupyterLab version to launch                                       | `4.4.9-GCCcore-14.3.0` |
+| `mode`               | radio         | Jupyter Lab (`1`) or Jupyter Notebook (`0`)                        | `1` (Lab) |
+| `extra_jupyter_args` | text_field    | Extra arguments appended to the `jupyter lab`/`notebook` command   | empty     |
+| `working_dir`        | path_selector | Root directory for the Jupyter session                             | `$HOME`   |
+| `auto_queues`        | select        | Slurm partition, generated from the partitions you can submit to   | first     |
+| `bc_num_hours`       | number        | Maximum wall time (hours)                                          | `1`       |
+| `num_cores`          | number_field  | Number of tasks (`--ntasks`)                                       | `1`       |
+| `gres`               | select        | GPU resource, used on partition `g` only: `gpu:nvidia_b200_1g.23gb` (MIG slice, 23 GB) or `gpu:nvidia_b200` (full GPU) | MIG slice |
+| `gres_count`         | number_field  | Number of the selected GPU resource (partition `g` only)           | `1`       |
+| `node`               | text_field    | Specific node (`--nodelist`); empty lets Slurm choose               | empty     |
 
 Adding a new `jupyter_version` option requires a matching entry in the
 `notebook_module_for` lookup in `template/script.sh.erb`, since the Lab and
