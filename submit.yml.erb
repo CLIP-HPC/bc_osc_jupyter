@@ -14,6 +14,6 @@ script:
     <%- if node != '' -%>
     - "--nodelist=<%= node %>"
     <%- end -%>
-    <%- if gres != 'none' -%>
+    <%- if auto_queues == 'g' -%>
     - "--gres=<%= gres %>:<%= gres_count %>"
     <%- end -%>

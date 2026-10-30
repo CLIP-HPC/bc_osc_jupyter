@@ -49,12 +49,11 @@ attributes:
   gres:
     widget: select
     label: "Resources"
-    help: "Select GPU or other Slurm GRES resources"
+    help: "Select GPU or other Slurm GRES resources (partition g only)"
     required: true
     options:
-      - ["None", "none"]
-      - ["4x NVIDIA B200 GPU (full)", "gpu:nvidia_b200"]
       - ["NVIDIA B200 MIG slice (23 GB)", "gpu:nvidia_b200_1g.23gb"]
+      - ["NVIDIA B200 GPU (full)", "gpu:nvidia_b200"]
   gres_count:
     widget: number_field
     label: "Resource count"
