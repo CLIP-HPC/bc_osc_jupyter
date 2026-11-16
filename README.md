@@ -16,12 +16,30 @@ An [Open OnDemand](https://openondemand.org/) Batch Connect app that launches a 
 ## Features
 
 - Launches either Jupyter Lab or Jupyter Notebook (user-selectable radio button)
-- Two node types, mapped directly to this cluster's Slurm partitions:
-  - **CPU** (`c` partition) — 18 nodes, 96 cores, ~755 GB RAM each
-  - **GPU** (`g` partition) — 8 nodes, 192 cores, ~1.5 TB RAM, 4x NVIDIA B200 each
-- GPU count selector (0-4 per node), requested via `gpus_per_node: nvidia_b200:N`
-- Root directory selector for the Jupyter session
-- Module-based software loading via Lmod (EESSI software stack)
+- **Jupyter version** select, populated from the site's module snapshot
+  (`/etc/ood/modules/cbe.json`, newest first), with a built-in list of known
+  modules if the snapshot can't be read
+- **Additional Python bundle** select (`SciPy-bundle`), filtered in the browser
+  (`form.js`) to the bundles of the same toolchain generation as the chosen
+  Jupyter version, so its packages are importable in the default kernel
+- Partition select: **CPU** (`c`), **GPU** (`g`, one GPU of the chosen type:
+  B200, B200 MIG slice, A100, A100 MIG slice, Quadro RTX 6000 or any), and
+  **High memory** (`m`, at least 200 GB)
+- CPU cores and memory selects; memory sizes are filtered per partition
+- Wall time choices read from the `interactive` QOS (`qos_limits.rb`) and
+  checked again at submit time
+- Root directory selector and extra Jupyter command-line arguments
+- [`jupyterlmod`](https://github.com/cmd-ntrf/jupyter-lmod) is loaded with the
+  same GCCcore as the Jupyter module: its "Softwares" sidebar panel lets users
+  load further modules in the session; they reach a notebook after
+  Kernel → Restart Kernel. (A small kernel-manager override in the generated
+  `config.py`, see `template/before.sh.erb`, makes restarts pick up the
+  server's current environment; stock Jupyter keeps the environment from when
+  the notebook's kernel was first created.) If no matching build exists, the session starts
+  without it.
+- Selected modules are re-validated when the job script is rendered, and
+  their availability is checked on the compute node itself (falling back to
+  another build of the same toolchain if the selected one is missing there)
 
 ## Requirements
 
@@ -32,10 +50,9 @@ and `g` partitions), not the OnDemand node itself:
 
 - [Lmod](https://www.tacc.utexas.edu/research-development/tacc-projects/lmod)
 - A `JupyterLab/<version>` module (used for Lab mode) and a matching
-  `JupyterNotebook/<version>` module (used for Notebook mode — the
-  `JupyterLab` module on this stack does not bundle the classic `notebook`
-  package). Both are provided by the EESSI software stack. See the mapping in
-  `template/script.sh.erb` if a new `jupyter_version` is added to `form.yml`.
+  `JupyterNotebook/<version>` module with the same GCCcore version (used for
+  Notebook mode — the `JupyterLab` module on this stack does not bundle the
+  classic `notebook` package). Both are provided by the EESSI software stack.
 - [OpenSSL](https://www.openssl.org/) (used to hash the Jupyter server password)
 
 ### Open OnDemand
@@ -44,22 +61,35 @@ and `g` partitions), not the OnDemand node itself:
 
 ## Configuration
 
-### form.yml attributes
+### Files
 
-| Attribute         | Widget          | Description                                              | Default   |
-|-------------------|-----------------|------------------------------------------------------------|-----------|
-| `cluster`         | (fixed)         | Target cluster                                              | `cbe`     |
-| `mode`            | radio           | Jupyter Lab (`1`) or Jupyter Notebook (`0`)                 | `1` (Lab) |
-| `working_dir`     | path_selector   | Root directory for the Jupyter session                      | `$HOME`   |
-| `bc_num_hours`    | number          | Maximum wall time (hours)                                   | `1`       |
-| `node_type`       | select          | `cpu` (`c` partition) or `gpu` (`g` partition)               | `cpu`     |
-| `gpus`            | number_field    | Number of NVIDIA B200 GPUs to request (0-4, `gpu` node type only) | `0`  |
-| `num_cores`       | number_field    | Number of CPU cores (1-96 on `cpu`, 1-192 on `gpu`)          | `1`       |
-| `jupyter_version` | select          | JupyterLab version to launch                                 | `4.4.9-GCCcore-14.3.0` |
+| File | Purpose |
+|------|---------|
+| `form.yml.erb` | The form (pinned to cluster `cbe`) |
+| `form.js` | Bundle filtering, memory filtering per partition, GPU type visibility |
+| `submit.yml.erb` | Slurm options: partition, memory, cores, GPU, QOS wall-time check |
+| `qos_limits.rb` | Reads the `interactive` QOS limits with `sacctmgr` |
+| `template/jupyter_modules.rb` | Module discovery and compatibility rules, shared by the form and the job script |
+| `orion_form.yml`, `orion_submit.yml.erb` | Older form/submit used on orion |
 
-Adding a new `jupyter_version` option requires a matching entry in the
-`notebook_module_for` lookup in `template/script.sh.erb`, since the Lab and
-Notebook modules are versioned independently on this software stack.
+### form attributes
+
+| Attribute              | Widget        | Description                                               | Default |
+|------------------------|---------------|-----------------------------------------------------------|---------|
+| `jupyter_module`       | select        | JupyterLab module to launch                               | newest  |
+| `mode`                 | radio         | Jupyter Lab (`1`) or Jupyter Notebook (`0`)               | `1` (Lab) |
+| `python_bundle_module` | select        | Optional `SciPy-bundle` module of the same toolchain      | None    |
+| `extra_jupyter_args`   | text_field    | Arguments appended to the `jupyter` command               | empty   |
+| `working_dir`          | path_selector | Root directory for the Jupyter session                    | `$HOME` |
+| `partition`            | select        | `c`, `g` or `m`                                           | `c`     |
+| `gpu_type`             | select        | GRES type for the one GPU on `g` (hidden elsewhere)       | B200 MIG slice |
+| `cores`                | select        | CPU cores (`--cpus-per-task`)                             | `1`     |
+| `ram`                  | select        | Memory in GB (`c`/`g`: 4-128, `m`: 200-1000)              | `4`     |
+| `bc_num_hours`         | select        | Wall time, up to the `interactive` QOS limit              | `1`     |
+
+A new toolchain generation (e.g. GCCcore 15.2.0 → 2026a) needs a line in
+`GENERATIONS` in `template/jupyter_modules.rb` for its bundles to be offered.
+Update `FALLBACK` there when the installed modules change.
 
 ## Troubleshooting
 

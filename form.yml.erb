@@ -1,0 +1,136 @@
+---
+cluster: "cbe"
+<%-
+  # Module choices come from this site's module snapshot (see template/jupyter_modules.rb);
+  # if it can't be read, the help texts say why and known modules are offered instead
+  load File.join(File.dirname(__FILE__), "template", "jupyter_modules.rb")
+  mods = JupyterModules.discover
+  esc = ->(s) { JupyterModules.yaml_escape(s) }
+  debug_for = ->(kind, what) {
+    msg = mods[:error] || (mods[:missing].include?(kind) ? "no #{what} entries in #{JupyterModules::CACHE_PATH}, showing known modules" : nil)
+    msg ? " [module discovery: #{esc.call(msg)[0, 300]}]" : ""
+  }
+
+  # The wall time limit comes from the interactive QOS in Slurm (qos_limits.rb), so the
+  # choices follow QOS changes; submit.yml.erb checks it again with a clear message
+  load File.join(File.dirname(__FILE__), "qos_limits.rb")
+  max_hours = JupyterQos.limits[:hours]
+-%>
+# Limits follow the interactive QOS (48 CPUs, 1000 GB, 12 hours per user) and the
+# submit rules on CBE.next: sessions on m need at least 200 GB (204800 MB, enforced by
+# the cluster's submit filter), sessions on g get one GPU.
+attributes:
+  jupyter_module:
+    widget: "select"
+    label: "Jupyter version"
+    help: "JupyterLab build to launch (Notebook mode uses the JupyterNotebook build with the same toolchain). The toolchain also decides which \"Additional Python bundle\" options below are compatible.<%= debug_for.call(:lab, "JupyterLab") %>"
+    options:
+<%- # values are the module names themselves (not list indices), so a submitted/cached
+    # choice stays valid when the snapshot is refreshed; script.sh.erb checks it again -%>
+<%- mods[:lab].each do |m| -%>
+      - ["<%= esc.call(m) %>", "<%= esc.call(m) %>"]
+<%- end -%>
+  mode:
+    widget: "radio"
+    label: "Interface"
+    value: "1"
+    options:
+      - ["Jupyter Lab", "1"]
+      - ["Jupyter Notebook", "0"]
+  python_bundle_module:
+    widget: "select"
+    label: "Additional Python bundle"
+    help: "Optional SciPy-bundle module (numpy, scipy, pandas, ...) to load alongside the selected Jupyter version, so its packages can be imported in the default Python kernel. Options are filtered to match the Jupyter version's toolchain. Choose None to skip.\n\nFor other software, use the **Softwares** panel in JupyterLab's left sidebar, then restart the kernel (Kernel → Restart Kernel). Pick modules with the same toolchain as the Jupyter version (e.g. GCCcore-14.3.0 or 2025b for JupyterLab 4.4.9).<%= debug_for.call(:bundle, "SciPy-bundle") %>"
+    options:
+      - ["None", ""]
+<%- # data-compat-jupyter lists the compatible jupyter_module values (module names,
+    # comma-separated - names never contain commas) for form.js to filter on -%>
+<%- mods[:bundle].each do |b| -%>
+      - - "<%= esc.call(b) %>"
+        - "<%= esc.call(b) %>"
+        - data-compat-jupyter: "<%= esc.call(mods[:lab].select { |m| JupyterModules.compatible?(m, b) }.join(',')) %>"
+<%- end -%>
+  extra_jupyter_args:
+    widget: "text_field"
+    label: "Extra Jupyter arguments"
+    value: ""
+    help: "Additional command-line arguments appended to the `jupyter lab`/`jupyter notebook` launch command."
+  working_dir:
+    widget: "path_selector"
+    label: "Root directory"
+    show_hidden: false
+    show_files: false
+    help: "Directory Jupyter starts in; defaults to $HOME."
+  partition:
+    widget: "select"
+    label: "Partition"
+    help: "Slurm partition to submit the job to. Sessions on GPU (g) get one GPU of the type chosen below. Sessions on high memory (m) need at least 200 GB memory."
+    options:
+      - ["CPU (c)", "c"]
+      - ["GPU (g)", "g"]
+      - ["High memory (m)", "m"]
+  gpu_type:
+    widget: "select"
+    label: "GPU type"
+    help: "GPU to request on the GPU (g) partition (one per session). MIG slices are a fraction of a GPU and use far less of your fair-share than a full GPU. Only shown when the GPU (g) partition is selected."
+    options:
+      # values are Slurm GRES type names (sinfo -p g -o %G); "" requests any GPU
+      - ["NVIDIA B200 MIG slice (1g, 23 GB)", "nvidia_b200_1g.23gb"]
+      - ["NVIDIA B200 (full, 180 GB)", "nvidia_b200"]
+      - ["NVIDIA A100 MIG slice (3g, 20 GB)", "nvidia_a100_3g.20gb"]
+      - ["NVIDIA A100 (full, 40 GB)", "nvidia_a100-sxm4-40gb"]
+      - ["NVIDIA Quadro RTX 6000 (24 GB)", "quadro_rtx_6000"]
+      - ["Any available GPU", ""]
+  cores:
+    widget: "select"
+    label: "CPU cores"
+    help: "Number of CPU cores to request (--cpus-per-task)."
+    options:
+      - ["1", "1"]
+      - ["2", "2"]
+      - ["4", "4"]
+      - ["8", "8"]
+      - ["16", "16"]
+      - ["32", "32"]
+  ram:
+    widget: "select"
+    label: "Memory (GB)"
+    help: "Amount of memory to request, in GB. The high memory (m) partition offers 200 GB to 1000 GB; the other partitions up to 128 GB."
+    options:
+<%- # data-only-partition lists the partitions an option is offered on (form.js hides
+    # it elsewhere): m sessions need at least 200 GB, the interactive QOS caps at 1000 GB -%>
+      - ["4 GB", "4", data-only-partition: "c,g"]
+      - ["8 GB", "8", data-only-partition: "c,g"]
+      - ["16 GB", "16", data-only-partition: "c,g"]
+      - ["32 GB", "32", data-only-partition: "c,g"]
+      - ["64 GB", "64", data-only-partition: "c,g"]
+      - ["128 GB", "128", data-only-partition: "c,g"]
+      - ["200 GB", "200", data-only-partition: "m"]
+      - ["256 GB", "256", data-only-partition: "m"]
+      - ["512 GB", "512", data-only-partition: "m"]
+      - ["1000 GB", "1000", data-only-partition: "m"]
+  bc_num_hours:
+    widget: "select"
+    label: "Wall time (hours)"
+    help: |
+      OnDemand sessions can run for at most <%= max_hours %> hours, on every partition.
+      For longer work, submit a batch job with `sbatch` from a login node: batch jobs
+      can run for up to 14 days.
+    value: "1"
+    options:
+<%- JupyterQos.hour_options(max_hours).each do |h| -%>
+      - ["<%= h %>", "<%= h %>"]
+<%- end -%>
+  bc_email_on_started: ""
+form:
+  - jupyter_module
+  - mode
+  - python_bundle_module
+  - extra_jupyter_args
+  - working_dir
+  - partition
+  - gpu_type
+  - cores
+  - ram
+  - bc_num_hours
+  - bc_email_on_started
