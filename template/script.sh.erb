@@ -10,8 +10,9 @@
 
   notebook_mode = context.mode.to_s == "0"
 
-  # orion_form.yml still has the older jupyter_version field (a JupyterLab version
-  # such as "4.4.9-GCCcore-14.3.0") and no bundle field, and shares this template
+  # A site override with the older form (e.g. on orion) may still send the
+  # jupyter_version field (a JupyterLab version such as "4.4.9-GCCcore-14.3.0")
+  # and no bundle field; keep accepting it until those overrides are updated
   field = ->(name) { context.respond_to?(name) ? context.public_send(name).to_s : "" }
   requested_lab = field.call(:jupyter_module)
   requested_lab = "JupyterLab/#{field.call(:jupyter_version)}" if requested_lab.empty? && !field.call(:jupyter_version).empty?

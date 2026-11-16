@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed (CBE)
 
+- Removed `orion_form.yml` and `orion_submit.yml.erb`: copies of orion's site
+  config that nothing in this app or on atlas reads.
 - Form brought in line with the RStudio app: Jupyter version and an
   "Additional Python bundle" (SciPy-bundle) are chosen from the site's module
   snapshot and filtered for toolchain compatibility; partition (c/g/m) with GPU
