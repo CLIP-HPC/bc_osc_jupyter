@@ -70,7 +70,6 @@ and `g` partitions), not the OnDemand node itself:
 | `submit.yml.erb` | Slurm options: partition, memory, cores, GPU, QOS wall-time check |
 | `qos_limits.rb` | Reads the `interactive` QOS limits with `sacctmgr` |
 | `template/jupyter_modules.rb` | Module discovery and compatibility rules, shared by the form and the job script |
-| `orion_form.yml`, `orion_submit.yml.erb` | Older form/submit used on orion |
 
 ### form attributes
 
