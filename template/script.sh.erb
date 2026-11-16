@@ -1,7 +1,56 @@
 #!/usr/bin/env bash
+<%-
+  # jupyter_module and python_bundle_module hold module names as submitted by the
+  # form; they are only used if still offered (and, for the bundle, compatible with
+  # the Jupyter build - form.js only filters client-side), so a stale or tampered
+  # value can't reach `module load`. The helper was copied here with the template.
+  load File.join(session.staged_root.to_s, "jupyter_modules.rb")
+  mods = JupyterModules.discover
+  q = ->(s) { JupyterModules.sh_quote(s) }
+
+  notebook_mode = context.mode.to_s == "0"
+
+  # orion_form.yml still has the older jupyter_version field (a JupyterLab version
+  # such as "4.4.9-GCCcore-14.3.0") and no bundle field, and shares this template
+  field = ->(name) { context.respond_to?(name) ? context.public_send(name).to_s : "" }
+  requested_lab = field.call(:jupyter_module)
+  requested_lab = "JupyterLab/#{field.call(:jupyter_version)}" if requested_lab.empty? && !field.call(:jupyter_version).empty?
+  lab_invalid = !requested_lab.empty? && !mods[:lab].include?(requested_lab)
+  selected_lab = mods[:lab].include?(requested_lab) ? requested_lab : mods[:lab].first
+
+  requested_bundle = field.call(:python_bundle_module)
+  requested_bundle = nil if requested_bundle.empty?
+  bundle_unknown = requested_bundle && !mods[:bundle].include?(requested_bundle)
+  bundle_incompatible = requested_bundle && !bundle_unknown && !JupyterModules.compatible?(selected_lab, requested_bundle)
+  selected_bundle = (requested_bundle && !bundle_unknown && !bundle_incompatible) ? requested_bundle : nil
+
+  # JupyterLab builds to try on the node, in order: the selected one, then the other
+  # builds of the same toolchain generation (so the bundle stays compatible). The
+  # snapshot only reflects one CPU architecture, so a build may be missing on the
+  # node's architecture; availability is checked on the node itself below.
+  # Notebook mode tries the JupyterNotebook builds matching those, in the same order.
+  selected_gen = JupyterModules.generation_of(selected_lab)
+  lab_candidates = [selected_lab] + mods[:lab].select { |m|
+    m != selected_lab && selected_gen && JupyterModules.generation_of(m) == selected_gen
+  }
+  candidates = notebook_mode ? lab_candidates.flat_map { |m| JupyterModules.notebooks_for(m, mods[:notebook]) }.uniq : lab_candidates
+-%>
 
 echo "Starting main script..."
 echo "TTT - $(date)"
+
+<% if mods[:error] -%>
+echo <%= q.call("WARNING: module snapshot read failed (#{mods[:error]}); using the known module list") %> >&2
+<% end -%>
+<% if lab_invalid -%>
+echo <%= q.call("WARNING: selected Jupyter module #{requested_lab} is not available; falling back to #{selected_lab}") %> >&2
+<% end -%>
+<% if bundle_unknown -%>
+echo <%= q.call("WARNING: selected Python bundle #{requested_bundle} is not available; no bundle will be loaded") %> >&2
+<% end -%>
+<% if bundle_incompatible -%>
+echo <%= q.call("WARNING: selected Python bundle #{requested_bundle} is not compatible with #{selected_lab}; no bundle will be loaded") %> >&2
+<% end -%>
 
 #
 # Start Jupyter server
@@ -10,19 +59,88 @@ echo "TTT - $(date)"
 # Clean the environment
 module purge
 
-# Required modules
-<%- unless context.cuda_version.empty? || context.cuda_version == 'none' -%>
-module load <%= context.cuda_version %>
-<%- end -%>
-
 # Set working directory to notebook root directory
 cd "${NOTEBOOK_ROOT}"
 
+# CPU architecture of this node's module tree (set by the EESSI init that the
+# cluster's script_wrapper sources), for error messages
+NODE_ARCH="${EESSI_SOFTWARE_SUBDIR:-unknown architecture}"
+
 # Setup Jupyter environment
-module load JupyterLab/<%= context.jupyter_version %>
+#
+# JupyterLab modules on this software stack don't bundle the classic `notebook`
+# package, so `jupyter notebook` isn't available after loading them. Notebook
+# mode instead loads the JupyterNotebook module of the same toolchain, which
+# bundles both `notebook` and a matching jupyterlab version.
+echo "[$(date +%T)] loading modules on $(hostname -s)..."
+JUPYTER_MODULE=""
+<% candidates.each do |candidate| -%>
+if [[ -z "$JUPYTER_MODULE" ]] && module is-avail <%= q.call(candidate) %>; then
+  JUPYTER_MODULE=<%= q.call(candidate) %>
+fi
+<% end -%>
+
+if [[ -z "$JUPYTER_MODULE" ]]; then
+<% if notebook_mode -%>
+  echo "ERROR: no JupyterNotebook module matching <%= selected_lab %> is available on $(hostname -s) ($NODE_ARCH). Choose Jupyter Lab, another Jupyter version or another partition." >&2
+<% else -%>
+  echo "ERROR: Jupyter module <%= selected_lab %> (or another build of the same toolchain) is not available on $(hostname -s) ($NODE_ARCH). Choose another Jupyter version or partition." >&2
+<% end -%>
+  exit 1
+fi
+<% unless notebook_mode -%>
+if [[ "$JUPYTER_MODULE" != <%= q.call(selected_lab) %> ]]; then
+  echo "WARNING: <%= selected_lab %> is not available on $(hostname -s) ($NODE_ARCH); using $JUPYTER_MODULE instead" >&2
+fi
+<% end -%>
+export JUPYTER_MODULE
+
+echo "[$(date +%T)] loading $JUPYTER_MODULE..."
+module load "$JUPYTER_MODULE"
+if ! command -v jupyter >/dev/null 2>&1; then
+  echo "ERROR: loading $JUPYTER_MODULE on $(hostname -s) ($NODE_ARCH) did not provide jupyter" >&2
+  exit 1
+fi
+
+# jupyterlmod adds a "Softwares" panel to the JupyterLab sidebar, where users load
+# further modules into the session (they apply to kernels started or restarted
+# afterwards). Use the newest build with the same GCCcore as the Jupyter module;
+# the session works without it, so a missing build is only a warning.
+JUPYTER_GCCCORE="${JUPYTER_MODULE##*-GCCcore-}"
+LMOD_EXT_MODULE=""
+for candidate in <%= mods[:lmod].map { |m| q.call(m) }.join(" ") %>; do
+  [[ "$candidate" == *"-GCCcore-${JUPYTER_GCCCORE}" ]] || continue
+  if module is-avail "$candidate"; then
+    LMOD_EXT_MODULE="$candidate"
+    break
+  fi
+done
+if [[ -n "$LMOD_EXT_MODULE" ]]; then
+  echo "[$(date +%T)] loading $LMOD_EXT_MODULE..."
+  module load "$LMOD_EXT_MODULE"
+  # The module ships the config enabling its server extension under its own
+  # etc/jupyter, which Jupyter doesn't search (only Python's prefix) - without
+  # this the server part never loads and the sidebar panel stays missing
+  if [[ -n "${EBROOTJUPYTERLMOD:-}" && -d "$EBROOTJUPYTERLMOD/etc/jupyter" ]]; then
+    export JUPYTER_CONFIG_PATH="$EBROOTJUPYTERLMOD/etc/jupyter${JUPYTER_CONFIG_PATH:+:$JUPYTER_CONFIG_PATH}"
+  fi
+else
+  echo "WARNING: no jupyterlmod module for GCCcore ${JUPYTER_GCCCORE} on $(hostname -s) ($NODE_ARCH); the module panel will be missing" >&2
+fi
+
+<% if selected_bundle -%>
+# The bundle shares the Python of the Jupyter module (same toolchain generation),
+# so its packages can be imported in the default Python kernel
+if module is-avail <%= q.call(selected_bundle) %>; then
+  echo "[$(date +%T)] loading <%= selected_bundle %>..."
+  module load <%= q.call(selected_bundle) %>
+else
+  echo "WARNING: Python bundle <%= selected_bundle %> is not available on $(hostname -s) ($NODE_ARCH); continuing without it" >&2
+fi
+<% end -%>
 
 module list
-export JUPYTER_PATH="${PWD}/share/jupyter:${OSC_JUPYTER_PATH}"
+export JUPYTER_PATH="${PWD}/share/jupyter"
 
 echo "TTT - $(date)"
 
@@ -34,4 +152,4 @@ echo "TTT - $(date)"
 
 # Launch the Jupyter server
 set -x
-jupyter <%= context.mode == "1" ? 'lab' : 'notebook' %> --config="${CONFIG_FILE}"
+jupyter <%= notebook_mode ? 'notebook' : 'lab' %> --config="${CONFIG_FILE}" <%= context.extra_jupyter_args.to_s %>

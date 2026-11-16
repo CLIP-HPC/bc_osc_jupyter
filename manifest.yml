@@ -4,9 +4,7 @@ category: Interactive Apps
 subcategory: Servers
 role: batch_connect
 description: |
-  Launch a [Jupyter] server with [Python] on [Cardinal], [Ascend], or [Pitzer].
-  Check the [Changelog] for the recent updates.
+  Launch a [Jupyter] server with [Python] on the CBE cluster.
 
   [Jupyter]: https://jupyter.org/
   [Python]: https://www.python.org/
-  [Changelog]: https://github.com/OSC/bc_osc_jupyter/releases

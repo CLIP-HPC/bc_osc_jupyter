@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed (CBE)
+
+- Form brought in line with the RStudio app: Jupyter version and an
+  "Additional Python bundle" (SciPy-bundle) are chosen from the site's module
+  snapshot and filtered for toolchain compatibility; partition (c/g/m) with GPU
+  type, CPU cores and memory selects; wall time follows the `interactive` QOS.
+- Removed the generic GRES, GRES count and node name fields; GPUs are requested
+  with `--gpus-per-task` on the `g` partition.
+- Loads `jupyterlmod` (matching GCCcore) so users can load further modules from
+  the JupyterLab sidebar; kernel restarts pick up modules loaded there (stock
+  Jupyter reuses the environment from when a notebook's kernel was created).
+- The job script re-validates the chosen modules and checks their availability
+  on the compute node.
+
 ## [0.25.0] - 2023-03-23
 
 - Added an option to disable loading cuda modules in [108](https://github.com/OSC/bc_osc_jupyter/pull/108).

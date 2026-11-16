@@ -1,0 +1,17 @@
+batch_connect:
+  template: "basic"
+script:
+  job_name: "ood-jupyter"
+  native:
+    - "--wckey=ood_jupyter"
+    - "--partition"
+    - "<%= auto_queues %>"
+    - <%= "--nodes=1" %>
+    - <%= "--ntasks=#{num_cores}" %>
+    <% if node != '' %>
+    - <%= "--nodelist=#{node}" %>
+    <% end %>
+    <% if gres != 'none' %>
+    - <%= "--gres=#{gres}:#{gres_count}" %>
+    <% end %>
+
